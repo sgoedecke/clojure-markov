@@ -29,33 +29,32 @@
 (defn next-word [word dict]
   (rand-nth (get (:dict dict) word)))
 
-(defn recursively-construct-sentence [sentence-array dict]
-  (let [current-word (last sentence-array)]
+(defn recursively-construct-sentence [dict words]
+  (let [current-word (last words)]
     (if (.contains (:last-words dict) current-word) ; `contains?` is a well-named method and clojure is a good language
-      sentence-array
-      (recursively-construct-sentence (conj sentence-array (next-word current-word dict)) dict))))
+      words 
+      (->> (next-word current-word dict)
+           (conj words)
+           (recursively-construct-sentence dict)))))
 
 (defn generate-sentence [dict]
   (let [first-word (rand-nth (:first-words dict))]
-    (str 
-      (str/join " " (recursively-construct-sentence [first-word] dict))
-      ".")))
+    (str/join " " (recursively-construct-sentence dict [first-word]))))
 
-(defn generate-paragraph [dict num-sentences]
-  (str/join " " (map 
-                  (fn [n] (generate-sentence dict)) 
-                  (range num-sentences))))
+
+(defn lazy-generate-text [dict]
+  (repeatedly (fn [] (generate-sentence dict))))
 
 (defn sanitize-text
   [text]
   (-> (str/replace text #"\\n" " ")
       (str/replace #"\s+" " ")))
 
-;; Main
-
 (defn generate-from-sample
   [sample-text num-sentences]
-  (-> (sanitize-text sample-text)
-      (markov-generate-dict)
-      (generate-paragraph num-sentences)))
+  (->> (sanitize-text sample-text)
+       markov-generate-dict
+       lazy-generate-text
+       (take num-sentences)
+       (str/join ". ")))
 
