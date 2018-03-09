@@ -9,31 +9,23 @@
             (update-in dict [current-word] conj next-word))
           {} (partition 2 1 words)))
 
-(defn get-first-words [sentences]
+(defn get-bookend-words [sentences which-end]
   (map (fn [sentence]
-         (first (split-into-words sentence))) sentences))
-
-(defn get-last-words [sentences]
-  (map (fn [sentence]
-         (last (split-into-words sentence))) sentences))
+         (which-end (str/split sentence #" "))) sentences))
 
 (defn markov-generate-dict [text]
   (let [sentences (str/split text #"\. ") ; TODO: handle '?'
         words (mapcat #(str/split %1 #" ") sentences)]
-    {:first-words (get-first-words sentences)
-     :last-words (get-last-words sentences)
+    {:first-words (get-bookend-words sentences first)
+     :last-words (get-bookend-words sentences last)
      :dict (build-dict words)}))
-
-;; Generating text from a markov dictionary
-
-(defn next-word [word dict]
-  (rand-nth (get (:dict dict) word)))
 
 (defn recursively-construct-sentence [dict words]
   (let [current-word (last words)]
-    (if (.contains (:last-words dict) current-word) ; `contains?` is a well-named method and clojure is a good language
+    (if (.contains (:last-words dict) current-word)
       words 
-      (->> (next-word current-word dict)
+      (->> (get (:dict dict) current-word)
+           rand-nth
            (conj words)
            (recursively-construct-sentence dict)))))
 
@@ -41,20 +33,12 @@
   (let [first-word (rand-nth (:first-words dict))]
     (str/join " " (recursively-construct-sentence dict [first-word]))))
 
-
-(defn lazy-generate-text [dict]
-  (repeatedly (fn [] (generate-sentence dict))))
-
-(defn sanitize-text
-  [text]
-  (-> (str/replace text #"\\n" " ")
-      (str/replace #"\s+" " ")))
-
 (defn generate-from-sample
   [sample-text num-sentences]
-  (->> (sanitize-text sample-text)
+  (->> (str/replace sample-text #"\s+" " ")
        markov-generate-dict
-       lazy-generate-text
+       (partial generate-sentence)
+       repeatedly
        (take num-sentences)
        (str/join ". ")))
 
